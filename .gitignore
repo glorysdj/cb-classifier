@@ -112,3 +112,5 @@ hs_err_pid*
 *.bin
 *.bigdl
 .vertx
+.settings/*
+.DS_Store
