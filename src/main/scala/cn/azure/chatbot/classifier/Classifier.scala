@@ -20,26 +20,11 @@ object Classifier {
   //  TODO:
   private var CATEGORIES: Array[String] = Array() //Array("", "CCS", "IoT", "Resource health", "SQL Database", "active-directory", "analysis-services", "api-management", "app-service", "application-gateway", "automation", "azure-portal", "azure-resource", "azure-resource-manager", "backup", "batch", "billing", "cdn", "cosmos-db", "downloads", "languages", "machine-learning", "multiple", "mysql", "open-resource", "scheduler", "security", "site-recovery", "storage", "virtual-machines", "virtual-network")
 
-  private val cutter = new JiebaSegmenter()
 
-  // To be configured
-  private var jft: JFastText = _
   private var model: AbstractModule[Activity, Activity, Float] = _
   private var top: Int = 10
 
-  private def docToWords(s: String): List[String] = {
-    val ret = cutter.process(s, SegMode.SEARCH).toList.map(_.word)
-    log.trace(s"docToWords($s) => $ret")
-    ret
-  }
-
-  private def wordsToVecs(words: List[String]) = {
-    val ret = words.map(jft.getWordVector(_).asScala.map(_.toFloat).toArray[Float])
-    //log.trace(s"wordsToVec('$words') => [${ret.map('[' + _.map(_.toString).mkString(".") + ']').mkString(".")}]")
-    ret
-  }
-
-  private def docToVecs(s: String): List[Array[Float]] = (wordsToVecs(docToWords(s)) ++ PADDING_VEC).take(SEQUENCE_LEN)
+  private def docToVecs(s: String): List[Array[Float]] = (WordVectorizer.docToVecs(s) ++ PADDING_VEC).take(SEQUENCE_LEN)
 
   private def vecToTensor(vec: List[Array[Float]]): Tensor[Float] = Utils.concatArray(vec).resize(SEQUENCE_LEN, DIMENSIONS)
 
@@ -53,10 +38,7 @@ object Classifier {
   def initModel(jftPath: String, bigdlPath: String, bigdlWeightPath: String, categories: java.util.List[String], top: Int): Unit = {
     CATEGORIES = categories.toList.toArray
     log.debug(s"Categories are : [${categories.mkString(".")}]")
-    jft = new JFastText()
-    log.debug(s"Loading FastText model '$jftPath'...")
-    jft.loadModel(jftPath)
-    log.debug("FastText model loaded.")
+    WordVectorizer.initModel(jftPath)
     log.debug(s"Loading BigDL model '$bigdlPath' and '$bigdlWeightPath'")
     model = Module.loadModule(bigdlPath, bigdlWeightPath)
     log.debug("BigDL model loaded.")
