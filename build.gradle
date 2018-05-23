@@ -16,6 +16,10 @@ buildscript {
     repositories {
         jcenter()
     }
+
+    dependencies {
+        classpath('se.transmode.gradle:gradle-docker:1.2')
+    }
 }
 
 plugins {
@@ -24,7 +28,7 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '1.2.4'
 }
 
-group 'cn.azure.chatbot'
+group 'windoze'
 version '1.0-SNAPSHOT'
 
 configurations.all {
@@ -32,11 +36,12 @@ configurations.all {
 }
 
 apply plugin: 'scala'
+apply plugin: 'docker'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
-mainClassName = 'io.vertx.core.Launcher'
+mainClassName = 'cn.azure.chatbot.classifier.App'
 def mainVerticleName = 'cn.azure.chatbot.classifier.MainVerticle'
 
 repositories {
@@ -85,4 +90,29 @@ shadowJar {
     mergeServiceFiles {
         include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
     }
+}
+
+docker {
+    baseImage "windoze/fasttext"
+    maintainer 'Chen Xu "windoze@0d0a.com"'
+}
+
+task buildDocker(type: Docker, dependsOn: shadowJar) {
+    tagVersion = System.getenv("BUILD_NUMBER") ?: project.version
+    push = Boolean.getBoolean("docker.push")
+    applicationName = project.applicationName
+
+    addFile {
+        from "${project.shadowJar.outputs.files.singleFile}"
+        into "/app/"
+    }
+    addFile {
+        from "conf-docker/config.json"
+        into "/app/conf/"
+    }
+    exposePort 8080
+    volume "/tmp"
+    workingDir "/app"
+    setEnvironment("CONFIG_URL", "")
+    entryPoint = ["java", "-jar", "/app/${project.name}-${project.version}-shadow.jar"]
 }

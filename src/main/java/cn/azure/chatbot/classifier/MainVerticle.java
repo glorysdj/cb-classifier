@@ -42,26 +42,25 @@ public class MainVerticle extends AbstractVerticle {
     @Override
     public void start(Future<Void> startFuture) {
         Router router = Router.router(vertx);
-        // CORS support
-        Set<String> allowHeaders = new HashSet<>();
-        allowHeaders.add("x-requested-with");
-        allowHeaders.add("Access-Control-Allow-Origin");
-        allowHeaders.add("origin");
-        allowHeaders.add("Content-Type");
-        allowHeaders.add("accept");
-        Set<HttpMethod> allowMethods = new HashSet<>();
-        allowMethods.add(HttpMethod.GET);
-        allowMethods.add(HttpMethod.POST);
-        allowMethods.add(HttpMethod.OPTIONS);
-        router.route().handler(CorsHandler.create("*")
-                .allowedHeaders(allowHeaders)
-                .allowedMethods(allowMethods));
         router.route().handler(BodyHandler.create());
-        router.get("/").handler(ctx -> ctx.response().end("OK"));
+        router.get("/").handler(ctx -> ctx.response()
+                .putHeader("Access-Control-Allow-Origin", "*")
+                .putHeader("Content-Type", "application/json; charset=utf-8")
+                .end("OK"));
         router.get("/app/info").handler(ctx -> ctx.response()
+                .putHeader("Access-Control-Allow-Origin", "*")
+                .putHeader("Content-Type", "application/json; charset=utf-8")
                 .putHeader("Content-Type", "application/json; charset=utf-8")
                 .end("{\"version\": \"" + VERSION + "\", \"name\": \"" + SERVICE_NAME + "\"}"));
         router.post("/test").blockingHandler(ctx -> endWith(ctx, Classifier.classifyString(ctx.getBodyAsString())));
+        // CORS and XSRF hack
+        router.options("/api/classify").handler(req -> {
+            req.response()
+                    .putHeader("Access-Control-Allow-Origin", "*")
+                    .putHeader("Access-Control-Allow-Methods", "*")
+                    .putHeader("Access-Control-Allow-Headers", "*")
+                    .end();
+        });
         router.post("/api/classify").blockingHandler(req -> {
             SearchRequest payload = bodyAs(req, SearchRequest.class);
             List<String> tags = Classifier.classifyString(payload.getQuestion().getContent()).stream()
@@ -72,23 +71,23 @@ public class MainVerticle extends AbstractVerticle {
             endWith(req, payload);
         });
 
-        String configURL = MoreObjects.firstNonNull(System.getenv("CLASSIFIER_CONFIG_URL"), System.getProperty("config.url", ""));
+        String configURL = MoreObjects.firstNonNull(System.getenv("CONFIG_URL"), System.getProperty("config.url", ""));
         ConfigRetrieverOptions options = new ConfigRetrieverOptions();
-        if(!configURL.isEmpty()) {
+        if (!configURL.isEmpty()) {
             try {
                 URL url = new URL(configURL);
                 String host = url.getHost();
                 int port = url.getPort();
                 String schema = url.getProtocol();
                 ConfigStoreOptions httpStore = new ConfigStoreOptions()
-                .setType("http")
-                .setConfig(new JsonObject()
-                        .put("host", url.getHost())
-                        .put("port", url.getDefaultPort())
-                        .put("path", url.getFile())
-                        .put("ssl", url.getProtocol().equalsIgnoreCase("https"))
-                );
-                options=options.addStore(httpStore);
+                        .setType("http")
+                        .setConfig(new JsonObject()
+                                .put("host", url.getHost())
+                                .put("port", url.getDefaultPort())
+                                .put("path", url.getFile())
+                                .put("ssl", url.getProtocol().equalsIgnoreCase("https"))
+                        );
+                options = options.addStore(httpStore);
             } catch (MalformedURLException e) {
                 e.printStackTrace();
                 throw new RuntimeException(e);
@@ -144,14 +143,16 @@ public class MainVerticle extends AbstractVerticle {
 
     private <T> void endWith(@NotNull RoutingContext ctx, T t) {
         ctx.response()
+                .putHeader("Access-Control-Allow-Origin", "*")
+                .putHeader("Content-Type", "application/json; charset=utf-8")
                 .putHeader("Content-Type", "application/json; charset=utf-8")
                 .end(gson.toJson(t));
     }
 
     private File downloadFile(String url) {
-        if(url.startsWith("http")) {
+        if (url.startsWith("http")) {
             try {
-                File f = File.createTempFile("prefix",null);
+                File f = File.createTempFile("prefix", null);
                 log.info("Downloading {}...", url);
                 FileUtils.copyURLToFile(new URL(url), f);
                 log.info("Downloading completed.");
@@ -169,9 +170,9 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     private void prepareModels(JsonObject config) {
-        String ftm=config.getString("fastText.model", "./cc.zh.300.bin");
-        String model=config.getString("bigdl.model", "./faqmodel.bigdl");
-        String weights=config.getString("bigdl.weight", "./faqmodel.bin");
+        String ftm = config.getString("fastText.model", "./cc.zh.300.bin");
+        String model = config.getString("bigdl.model", "./faqmodel.bigdl");
+        String weights = config.getString("bigdl.weight", "./faqmodel.bin");
 
         Classifier.initModel(downloadFile(ftm).getPath(),
                 downloadFile(model).getPath(),

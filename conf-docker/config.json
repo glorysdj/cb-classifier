@@ -1,5 +1,5 @@
 {
-  "fastText.model": "./models/cc.zh.300.bin",
+  "fastText.model": "/models/cc.zh.300.bin",
   "bigdl.model": "https://chentestarchive.blob.core.chinacloudapi.cn/models/faqmodel.bigdl",
   "bigdl.weight": "https://chentestarchive.blob.core.chinacloudapi.cn/models/faqmodel.bin",
   "tag.count": 5,
