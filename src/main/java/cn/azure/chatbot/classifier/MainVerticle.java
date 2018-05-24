@@ -66,7 +66,7 @@ public class MainVerticle extends AbstractVerticle {
             List<String> tags = Classifier.classifyString(payload.getQuestion().getContent()).stream()
                     .map(s -> "category/" + s)
                     .collect(Collectors.toList());
-            log.debug("Classification('%s') => '%s'", payload.getQuestion().getContent(), tags);
+            log.debug("Classification('{}') => '{}'", payload.getQuestion().getContent(), tags);
             payload.setTags(tags);
             endWith(req, payload);
         });
