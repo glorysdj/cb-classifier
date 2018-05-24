@@ -80,7 +80,7 @@ tasks.compileJava.dependsOn compileScala
 tasks.compileScala.dependsOn.remove("compileJava")
 
 shadowJar {
-    baseName = 'app'
+    baseName = "${project.name}"
     classifier = 'shadow'
     zip64 true
 
@@ -113,6 +113,6 @@ task buildDocker(type: Docker, dependsOn: shadowJar) {
     exposePort 8080
     volume "/tmp"
     workingDir "/app"
-    setEnvironment("CONFIG_URL", "")
-    entryPoint = ["java", "-jar", "/app/${project.name}-${project.version}-shadow.jar"]
+    setEnvironment "CONFIG_URL=", ""
+    entryPoint = ["java", "-Dorg.bytedeco.javacpp.maxphysicalbytes=0", "-Dorg.bytedeco.javacpp.maxbytes=0", "-jar", "/app/${project.name}-${project.version}-shadow.jar"]
 }
